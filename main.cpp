@@ -2,6 +2,8 @@
 #include <fstream>
 #include <regex>
 
+#include <boost/coroutine2/all.hpp>
+
 #include "graph.h"
 
 int main(int argc, char **argv) {
@@ -38,25 +40,40 @@ int main(int argc, char **argv) {
     cout << "found " << servers.size() << " server definitions\n";
 
     // now see how many viable pairs there are
-    // faster way is to sort by capacity but this is good enough for now
+    // create a generator from the pair calculation:
+
+    using namespace boost::coroutines2;
+    using viable_pair_coro_t = asymmetric_coroutine<std::pair<size_t, size_t>>;
+    auto viable_pair_generator =
+        [&](viable_pair_coro_t::push_type & sink) {
+        // faster way is to sort by capacity but this is good enough for now
+        for (size_t i = 0; i < servers.size(); ++i) {
+            for (size_t j = 0; j < servers.size(); ++j) {
+                if (usages[i] == 0) {
+                    continue;
+                }
+
+                if (i == j) {
+                    continue;
+                }
+
+                if (usages[i] <= (servers[j].capacity - usages[j])) {
+                    // room to move there, if there is a path
+                    sink(std::make_pair(i, j));
+                }
+            }
+        }};
+
+    // create a sequence from the generator
+    viable_pair_coro_t::pull_type viable_pairs(viable_pair_generator);
+
+    // count pairs in sequence
     size_t viable_pair_count = 0;
-    for (size_t i = 0; i < servers.size(); ++i) {
-        for (size_t j = 0; j < servers.size(); ++j) {
-            if (usages[i] == 0) {
-                continue;
-            }
-
-            if (i == j) {
-                continue;
-            }
-
-            if (usages[i] <= (servers[j].capacity - usages[j])) {
-                // room to move there, if there is a path
-                viable_pair_count++;
-            }
-        }
+    for (auto const& v : viable_pairs) {
+        (void)v;
+        ++viable_pair_count;
     }
-        
+
     cout << viable_pair_count << " viable pairs\n";
 
 }
