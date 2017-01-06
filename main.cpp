@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
 
     regex df_re(R"(^/dev/grid/node-x(\d+)-y(\d+)\s+(\d+)T\s+(\d+)T\s.*)");
     vector<server_t> servers;
+    vector<int>      usages;
     while (!input.eof()) {
         string instr;
         getline(input, instr);
@@ -29,8 +30,8 @@ int main(int argc, char **argv) {
             servers.push_back({
                     stoi(matches.str(1)),
                     stoi(matches.str(2)),
-                    stoi(matches.str(3)),
-                    stoi(matches.str(4))});
+                    stoi(matches.str(3))});
+            usages.push_back(stoi(matches.str(4)));
         }        
     }        
 
@@ -41,7 +42,7 @@ int main(int argc, char **argv) {
     size_t viable_pair_count = 0;
     for (size_t i = 0; i < servers.size(); ++i) {
         for (size_t j = 0; j < servers.size(); ++j) {
-            if (servers[i].usage == 0) {
+            if (usages[i] == 0) {
                 continue;
             }
 
@@ -49,7 +50,7 @@ int main(int argc, char **argv) {
                 continue;
             }
 
-            if (servers[i].usage <= (servers[j].capacity - servers[j].usage)) {
+            if (usages[i] <= (servers[j].capacity - usages[j])) {
                 // room to move there, if there is a path
                 viable_pair_count++;
             }

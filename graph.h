@@ -10,7 +10,6 @@ struct server_t {
     int x;
     int y;
     int capacity;
-    int usage;
 };
 
 struct vertex_property_t {
