@@ -59,8 +59,19 @@ int main(int argc, char **argv) {
         }        
     }        
 
-    // BOZO set data location properly
-    initial_state.original_data_location = 6;    // note rows are y, cols are x
+    // to find the "upper right" element, first find the largest x (column) value
+    int largest_x = max_element(servers.begin(), servers.end(),
+                                [](server_t const& a, server_t const& b) {
+                                    return a.x < b.x;
+                                })->x;
+
+    // then locate the y=0 matching that x, and calculate its offset among the servers
+    initial_state.original_data_location =
+        distance(servers.begin(),
+                 find_if(servers.begin(), servers.end(),
+                         [largest_x](server_t const& s) {
+                             return ((s.x == largest_x) && (s.y == 0));
+                         }));
 
     // now see how many viable pairs there are
     // create a generator from the pair calculation:
