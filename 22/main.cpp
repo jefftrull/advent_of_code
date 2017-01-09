@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <regex>
+#include <algorithm>
 
 #include <boost/coroutine2/all.hpp>
 #include <boost/graph/astar_search.hpp>
@@ -146,9 +147,37 @@ int main(int argc, char **argv) {
             move_graph,
             initial_state,
             [&](const vertex_t v) {
+                server_t current_server = servers[v.original_data_location];
+
                 // Heuristic: Manhattan distance to goal
-                return servers[v.original_data_location].x
-                    + servers[v.original_data_location].y;
+                // we must make at least this many moves to get the original data home
+                int mdist = current_server.x + current_server.y;
+
+                // In addition we may need to move other data aside
+
+                // The input data I got had almost no servers with sufficient space to hold
+                // the target data.  This gave me an idea: we definitely need to move a
+                // "hole", i.e. a bubble of empty data, to the origin in order to accomodate
+                // our target data.  Therefore we can add the distance from the closest such
+                // server to the origin, to our total cost estimate and it will still be
+                // admissable.
+
+                // First, find the nearest (to the origin) server of sufficient reserve capacity
+                // to hold the target data
+
+                std::vector<server_t> eligible_servers;
+                for (size_t i = 0; i < servers.size(); ++i) {
+                    if ((servers[i].capacity - v.usages[i]) >= v.usages[v.original_data_location]) {
+                        eligible_servers.push_back(servers[i]);
+                    }
+                }
+                // take the one with the minimum Manhattan distance
+                auto min_it = std::min_element(eligible_servers.begin(), eligible_servers.end(),
+                                               [](server_t const& a, server_t const& b) {
+                                                   return (a.x + a.y) < (b.x + b.y);
+                                               });
+                int hole_dist = min_it->x + min_it->y;
+                return mdist + hole_dist;
             },
             // named params
             weight_map(make_static_property_map<vertex_t, size_t>(1)).
