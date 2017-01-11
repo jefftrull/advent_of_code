@@ -46,11 +46,11 @@ struct server_state_t {
 
     server_state_t state_if_move(size_t, size_t) const;
 
-    // helper for edge printing
+    // helper for vertex printing
     friend std::ostream& operator<<(std::ostream &, server_state_t const&);
 
 private:
-    std::shared_ptr<std::vector<capacity_t>> usages; // usage per server at a moment in time
+    std::shared_ptr<std::vector<capacity_t>> usages; // original usage per server
     size_t                  original_data_location;  // where desired data is
 };
 

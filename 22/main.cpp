@@ -154,6 +154,11 @@ int main(int argc, char **argv) {
                 server_t current_server = servers[v.data_offset()];
                 int mdist = current_server.x + current_server.y;
 
+                // if mdist is 0, we are at the target, so simply return 0
+                if (mdist == 0) {
+                    return 0;
+                }
+
                 // Finding the distance to the "blank tile"
                 // First, find the nearest (to the origin) server of sufficient reserve capacity
                 // to hold the target data

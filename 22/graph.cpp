@@ -147,12 +147,6 @@ server_state_t::operator==(server_state_t const& other) const {
 }
 
 size_t
-server_state_t::hole_location() const {
-    auto it = std::find(usages->begin(), usages->end(), 0);
-    return std::distance(usages->begin(), it);
-}
-
-size_t
 server_state_t::data_offset() const {
     return original_data_location;
 }
