@@ -46,8 +46,7 @@ move_graph_t::out_edge_iterator_t::out_edge_iterator_t(
 move_graph_t::edge_t
 move_graph_t::out_edge_iterator_t::dereference() const {
     // assuming user has not tried to dereference the end iterator
-    return std::make_pair(*source_,
-                          move_graph_t::state_if_move(*source_, src_server_, dst_server_));
+    return std::make_pair(*source_, source_->state_if_move(src_server_, dst_server_));
 }
 
 bool
@@ -86,10 +85,10 @@ move_graph_t::out_edge_iterator_t::ensure_valid() {
 
     for (; src_server_ < servers.size(); ++src_server_) {
         for (; dst_server_ < servers.size(); ++dst_server_) {
-            if (((source_->usages)[src_server_] == 0) ||                              // no source data
-                (src_server_ == dst_server_) ||                                       // same src, dst
-                ((source_->usages)[src_server_] >
-                 (servers[dst_server_].capacity - (source_->usages)[dst_server_]))) { // insufficient space?
+            if ((source_->usage(src_server_) == 0) ||                              // no source data
+                (src_server_ == dst_server_) ||                                    // same src, dst
+                (source_->usage(src_server_) >
+                 (servers[dst_server_].capacity - source_->usage(dst_server_)))) { // insufficient space?
 
                 continue;
             }
@@ -114,18 +113,20 @@ move_graph_t::out_edge_iterator_t::ensure_valid() {
     }
 }
 
+server_state_t::server_state_t() {}
+
 // Utility function for producing a new state from a move
-move_graph_t::vertex_t
-move_graph_t::state_if_move(vertex_t initial,
-                            size_t src, size_t dst) {
+server_state_t
+server_state_t::state_if_move(size_t src, size_t dst) const {
     // turn the source -> dest move into a new usage state
-    initial.usages[dst] += initial.usages[src];
-    initial.usages[src] = 0;
-    if (src == initial.original_data_location) {
+    server_state_t moved_state = *this;
+    moved_state.usages[dst] += moved_state.usages[src];
+    moved_state.usages[src] = 0;
+    if (src == moved_state.original_data_location) {
         // moving the target data
-        initial.original_data_location = dst;
+        moved_state.original_data_location = dst;
     }
-    return initial;
+    return moved_state;
 }
 
 bool
@@ -141,9 +142,19 @@ server_state_t::operator==(server_state_t const& other) const {
         (usages == other.usages);
 }
 
+size_t
+server_state_t::data_offset() const {
+    return original_data_location;
+}
+
+server_state_t::capacity_t
+server_state_t::usage(size_t offset) const {
+    return usages[offset];
+}
+
 std::ostream&
-operator<<(std::ostream & os, server_state_t s) {
-    os << "original data at " << s.original_data_location << "\n";
+operator<<(std::ostream & os, server_state_t const& s) {
+    os << "original data at " << s.data_offset() << "\n";
     os << "capacities: ";
     std::copy(s.usages.begin(), s.usages.end(),
               std::ostream_iterator<int>(os, ", "));

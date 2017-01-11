@@ -21,8 +21,8 @@ struct goal_reached {
 struct goal_state_finder : public boost::default_astar_visitor {
 
     void examine_vertex( server_state_t state, move_graph_t const& g) {
-        if ((g.servers()[state.original_data_location].x == 0) &&
-            (g.servers()[state.original_data_location].y == 0)) {
+        if ((g.servers()[state.data_offset()].x == 0) &&
+            (g.servers()[state.data_offset()].y == 0)) {
             throw goal_reached{state};
         }
     }
@@ -45,7 +45,8 @@ int main(int argc, char **argv) {
 
     regex df_re(R"(^/dev/grid/node-x(\d+)-y(\d+)\s+(\d+)T\s+(\d+)T\s.*)");
     vector<server_t> servers;
-    server_state_t   initial_state;
+    using capacity_t = server_t::capacity_t;
+    std::vector<capacity_t> usages;
     while (!input.eof()) {
         string instr;
         getline(input, instr);
@@ -53,7 +54,6 @@ int main(int argc, char **argv) {
         if (regex_match(instr.begin(), instr.end(), matches, df_re)) {
             // collect info on this server
             int capacity = stoi(matches.str(3));
-            using capacity_t = server_t::capacity_t;
             assert(capacity <= std::numeric_limits<capacity_t>::max());
             servers.push_back({
                     stoi(matches.str(1)),
@@ -61,23 +61,12 @@ int main(int argc, char **argv) {
                     static_cast<capacity_t>(capacity)});
             int usage = stoi(matches.str(4));
             assert(usage <= std::numeric_limits<capacity_t>::max());
-            initial_state.usages.push_back(usage);
+            usages.push_back(usage);
         }        
     }        
+    server_state_t   initial_state(servers.begin(), servers.end(),
+                                   usages.begin(), usages.end());
 
-    // to find the "upper right" element, first find the largest x (column) value
-    int largest_x = max_element(servers.begin(), servers.end(),
-                                [](server_t const& a, server_t const& b) {
-                                    return a.x < b.x;
-                                })->x;
-
-    // then locate the y=0 matching that x, and calculate its offset among the servers
-    initial_state.original_data_location =
-        distance(servers.begin(),
-                 find_if(servers.begin(), servers.end(),
-                         [largest_x](server_t const& s) {
-                             return ((s.x == largest_x) && (s.y == 0));
-                         }));
 
     // now see how many viable pairs there are
     // create a generator from the pair calculation:
@@ -89,7 +78,7 @@ int main(int argc, char **argv) {
         // faster way is to sort by capacity but this is good enough for now
         for (size_t i = 0; i < servers.size(); ++i) {
             for (size_t j = 0; j < servers.size(); ++j) {
-                if (initial_state.usages[i] == 0) {
+                if (initial_state.usage(i) == 0) {
                     continue;
                 }
 
@@ -97,7 +86,7 @@ int main(int argc, char **argv) {
                     continue;
                 }
 
-                if (initial_state.usages[i] <= (servers[j].capacity - initial_state.usages[j])) {
+                if (initial_state.usage(i) <= (servers[j].capacity - initial_state.usage(j))) {
                     // room to move there, if there is a path
                     sink(make_pair(i, j));
                 }
@@ -162,7 +151,7 @@ int main(int argc, char **argv) {
 
                 // Manhattan distance to goal
                 // we must make at least this many moves to get the original data home
-                server_t current_server = servers[v.original_data_location];
+                server_t current_server = servers[v.data_offset()];
                 int mdist = current_server.x + current_server.y;
 
                 // Finding the distance to the "blank tile"
@@ -171,7 +160,7 @@ int main(int argc, char **argv) {
 
                 vector<server_t> eligible_servers;
                 for (size_t i = 0; i < servers.size(); ++i) {
-                    if ((servers[i].capacity - v.usages[i]) >= v.usages[v.original_data_location]) {
+                    if ((servers[i].capacity - v.usage(i)) >= v.usage(v.data_offset())) {
                         eligible_servers.push_back(servers[i]);
                     }
                 }

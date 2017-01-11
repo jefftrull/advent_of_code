@@ -14,16 +14,44 @@ struct server_t {
 
 struct server_state_t {
     using capacity_t = server_t::capacity_t;
-    std::vector<capacity_t> usages;                  // usage per server at a moment in time
-    size_t                  original_data_location;  // where desired data is
+
+    server_state_t();
+
+    template<typename ServIt, typename UsageIt>
+    server_state_t(ServIt sbegin, ServIt send,
+                   UsageIt ubegin, UsageIt uend) : usages(ubegin, uend) {
+        // to find the "upper right" element, first find the largest x (column) value
+        using namespace std;
+        int largest_x = max_element(sbegin, send,
+                                    [](server_t const& a, server_t const& b) {
+                                        return a.x < b.x;
+                                    })->x;
+
+        // then locate the y=0 matching that x, and calculate its offset among the servers
+        original_data_location =
+            distance(sbegin,
+                     find_if(sbegin, send,
+                             [largest_x](server_t const& s) {
+                                 return ((s.x == largest_x) && (s.y == 0));
+                             }));
+    }
+
+    capacity_t usage(size_t idx) const;
 
     bool operator<(server_state_t const& other) const;
     bool operator==(server_state_t const& other) const;
     bool operator!=(server_state_t const& other) const;
-};
+    size_t data_offset() const;
 
-// helper for edge printing
-std::ostream& operator<<(std::ostream & os, server_state_t);
+    server_state_t state_if_move(size_t, size_t) const;
+
+    // helper for edge printing
+    friend std::ostream& operator<<(std::ostream &, server_state_t const&);
+
+private:
+    std::vector<capacity_t> usages;                  // usage per server at a moment in time
+    size_t                  original_data_location;  // where desired data is
+};
 
 // there is essentially no edge property because it either exists or does not exist
 // and all edges are weight 1 - a constant property map may be appropriate here
@@ -69,9 +97,6 @@ struct move_graph_t {
     std::vector<server_t> const & servers() const;
 
 private:
-    static vertex_t
-    state_if_move(vertex_t, size_t, size_t);
-
     std::vector<server_t> const servers_;
 
 };
