@@ -151,38 +151,55 @@ int main(int argc, char **argv) {
         astar_search_no_init(
             move_graph,
             initial_state,
-            [&](const vertex_t v) {
-                server_t current_server = servers[v.original_data_location];
+            [&](const vertex_t& v) {
 
-                // Heuristic: Manhattan distance to goal
+                // Heuristic plan:
+                // We need enough steps to move the original data to the origin
+                // That ends up being about 5 times the Manhattan distance due to the need to move
+                // the "blank tile" (server with sufficient capacity) back into place between the
+                // target data and the origin each time.
+                // In addition, we need to move the "blank tile" into position in the first place.
+
+                // Manhattan distance to goal
                 // we must make at least this many moves to get the original data home
+                server_t current_server = servers[v.original_data_location];
                 int mdist = current_server.x + current_server.y;
 
-                // In addition we may need to move other data aside
-
-                // The input data I got had almost no servers with sufficient space to hold
-                // the target data.  This gave me an idea: we definitely need to move a
-                // "hole", i.e. a bubble of empty data, to the origin in order to accomodate
-                // our target data.  Therefore we can add the distance from the closest such
-                // server to the origin, to our total cost estimate and it will still be
-                // admissable.
-
+                // Finding the distance to the "blank tile"
                 // First, find the nearest (to the origin) server of sufficient reserve capacity
                 // to hold the target data
 
-                std::vector<server_t> eligible_servers;
+                vector<server_t> eligible_servers;
                 for (size_t i = 0; i < servers.size(); ++i) {
                     if ((servers[i].capacity - v.usages[i]) >= v.usages[v.original_data_location]) {
                         eligible_servers.push_back(servers[i]);
                     }
                 }
-                // take the one with the minimum Manhattan distance
-                auto min_it = std::min_element(eligible_servers.begin(), eligible_servers.end(),
-                                               [](server_t const& a, server_t const& b) {
-                                                   return (a.x + a.y) < (b.x + b.y);
+                // take the one with the minimum Manhattan distance to the server with our data
+                auto min_it = min_element(eligible_servers.begin(), eligible_servers.end(),
+                                          [&current_server](server_t const& a, server_t const& b) {
+                                              return ((abs(current_server.x - a.x) + abs(current_server.y - a.y)) <
+                                                      (abs(current_server.x - b.x) + abs(current_server.y - b.y)));
                                                });
-                int hole_dist = min_it->x + min_it->y;
-                return mdist + hole_dist;
+                assert(min_it != eligible_servers.end());   // insoluble!
+
+                // calculate distance to point above or to left of target data, whichever is shorter
+                int hole_dist = std::numeric_limits<int>::max();
+                if (current_server.y > 0) {
+                    // distance to point above target
+                    hole_dist = abs((current_server.y - 1) - min_it->y) + abs(current_server.x - min_it->x);
+                }
+                if (current_server.x > 0) {
+                    // distance to point left of target
+                    hole_dist = min(hole_dist,
+                                    abs((current_server.x - 1) - min_it->x) + abs(current_server.y - min_it->y));
+                }
+
+                // describe our cost calculation
+                cerr << "vertex with original data at (" << current_server.x << ", " << current_server.y << ") est cost " << mdist << "+" << hole_dist << "=" << (5*(mdist-1) + 1) + hole_dist << "\n";
+
+                // each move of the target data requires 5 moves overall, except for the last one
+                return (5*(mdist-1)+ 1) + hole_dist;
             },
             // named params
             weight_map(make_static_property_map<vertex_t, size_t>(1)).
