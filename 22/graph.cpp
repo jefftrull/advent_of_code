@@ -92,6 +92,17 @@ move_graph_t::out_edge_iterator_t::ensure_valid() {
 
                 continue;
             }
+
+            // We must always move the entirety of a node's data, so
+            // as a result of merging src and dst we could end up with more data
+            // than will fit in the destination (0,0) server
+            if ((src_server_ == source_->data_offset()) &&
+                ((source_->usage(src_server_) + source_->usage(dst_server_)) >
+                 servers[0].capacity)) {
+                std::cerr << "rejecting an overflow move\n";
+                continue;
+            }
+
             // are source and dest neighbors in the grid?
             if (((servers[src_server_].x == servers[dst_server_].x) &&
                  ((servers[src_server_].y == (servers[dst_server_].y + 1)) ||

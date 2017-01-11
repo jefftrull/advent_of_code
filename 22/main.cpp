@@ -28,6 +28,70 @@ struct goal_state_finder : public boost::default_astar_visitor {
     }
 };
 
+// a heuristic to guide the A* search
+struct server_move_heuristic_t {
+    server_move_heuristic_t(std::vector<server_t> const& servers) : servers_(servers) {}
+
+    using vertex_t = move_graph_t::vertex_t;
+
+    int operator()(const vertex_t& v) const {
+
+        // Heuristic plan:
+        // We need enough steps to move the original data to the origin
+        // That ends up being about 5 times the Manhattan distance due to the need to move
+        // the "blank tile" (server with sufficient capacity) back into place between the
+        // target data and the origin each time.
+        // In addition, we need to move the "blank tile" into position in the first place.
+
+        // Manhattan distance to goal
+        // we must make at least this many moves to get the original data home
+        server_t current_server = servers_[v.data_offset()];
+        int mdist = current_server.x + current_server.y;
+
+        // if mdist is 0, we are at the target, so simply return 0
+        if (mdist == 0) {
+            return 0;
+        }
+
+        // Finding the distance to the "blank tile"
+        // First, find the nearest (to the origin) server of sufficient reserve capacity
+        // to hold the target data
+
+        std::vector<server_t> eligible_servers;
+        for (size_t i = 0; i < servers_.size(); ++i) {
+            if ((servers_[i].capacity - v.usage(i)) >= v.usage(v.data_offset())) {
+                eligible_servers.push_back(servers_[i]);
+            }
+        }
+        // take the one with the minimum Manhattan distance to the server with our data
+        auto min_it = min_element(eligible_servers.begin(), eligible_servers.end(),
+                                  [&current_server](server_t const& a, server_t const& b) {
+                                      return ((abs(current_server.x - a.x) + abs(current_server.y - a.y)) <
+                                              (abs(current_server.x - b.x) + abs(current_server.y - b.y)));
+                                  });
+        assert(min_it != eligible_servers.end());   // insoluble!
+
+        // calculate distance to point above or to left of target data, whichever is shorter
+        int hole_dist = std::numeric_limits<int>::max();
+        if (current_server.y > 0) {
+            // distance to point above target
+            hole_dist = abs((current_server.y - 1) - min_it->y) + abs(current_server.x - min_it->x);
+        }
+        if (current_server.x > 0) {
+            // distance to point left of target
+            hole_dist = std::min(hole_dist,
+                                 abs((current_server.x - 1) - min_it->x) + abs(current_server.y - min_it->y));
+        }
+
+        // each move of the target data requires 5 moves overall, except for the last one
+        return (5*(mdist-1)+ 1) + hole_dist;
+    }
+
+private:
+
+    std::vector<server_t> const & servers_;
+
+};
 
 int main(int argc, char **argv) {
     using namespace std;
@@ -140,61 +204,7 @@ int main(int argc, char **argv) {
         astar_search_no_init(
             move_graph,
             initial_state,
-            [&](const vertex_t& v) {
-
-                // Heuristic plan:
-                // We need enough steps to move the original data to the origin
-                // That ends up being about 5 times the Manhattan distance due to the need to move
-                // the "blank tile" (server with sufficient capacity) back into place between the
-                // target data and the origin each time.
-                // In addition, we need to move the "blank tile" into position in the first place.
-
-                // Manhattan distance to goal
-                // we must make at least this many moves to get the original data home
-                server_t current_server = servers[v.data_offset()];
-                int mdist = current_server.x + current_server.y;
-
-                // if mdist is 0, we are at the target, so simply return 0
-                if (mdist == 0) {
-                    return 0;
-                }
-
-                // Finding the distance to the "blank tile"
-                // First, find the nearest (to the origin) server of sufficient reserve capacity
-                // to hold the target data
-
-                vector<server_t> eligible_servers;
-                for (size_t i = 0; i < servers.size(); ++i) {
-                    if ((servers[i].capacity - v.usage(i)) >= v.usage(v.data_offset())) {
-                        eligible_servers.push_back(servers[i]);
-                    }
-                }
-                // take the one with the minimum Manhattan distance to the server with our data
-                auto min_it = min_element(eligible_servers.begin(), eligible_servers.end(),
-                                          [&current_server](server_t const& a, server_t const& b) {
-                                              return ((abs(current_server.x - a.x) + abs(current_server.y - a.y)) <
-                                                      (abs(current_server.x - b.x) + abs(current_server.y - b.y)));
-                                               });
-                assert(min_it != eligible_servers.end());   // insoluble!
-
-                // calculate distance to point above or to left of target data, whichever is shorter
-                int hole_dist = std::numeric_limits<int>::max();
-                if (current_server.y > 0) {
-                    // distance to point above target
-                    hole_dist = abs((current_server.y - 1) - min_it->y) + abs(current_server.x - min_it->x);
-                }
-                if (current_server.x > 0) {
-                    // distance to point left of target
-                    hole_dist = min(hole_dist,
-                                    abs((current_server.x - 1) - min_it->x) + abs(current_server.y - min_it->y));
-                }
-
-                // describe our cost calculation
-                cerr << "vertex with original data at (" << current_server.x << ", " << current_server.y << ") est cost " << mdist << "+" << hole_dist << "=" << (5*(mdist-1) + 1) + hole_dist << "\n";
-
-                // each move of the target data requires 5 moves overall, except for the last one
-                return (5*(mdist-1)+ 1) + hole_dist;
-            },
+            server_move_heuristic_t(servers),
             // named params
             weight_map(make_static_property_map<vertex_t, size_t>(1)).
             vertex_index_map(associative_property_map<map<vertex_t, size_t>>(vertex_index_map)).
