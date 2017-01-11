@@ -19,7 +19,8 @@ struct server_state_t {
 
     template<typename ServIt, typename UsageIt>
     server_state_t(ServIt sbegin, ServIt send,
-                   UsageIt ubegin, UsageIt uend) : usages(ubegin, uend) {
+                   UsageIt ubegin, UsageIt uend)
+        : usages(std::make_shared<std::vector<capacity_t>>(ubegin, uend)) {
         // to find the "upper right" element, first find the largest x (column) value
         using namespace std;
         int largest_x = max_element(sbegin, send,
@@ -49,7 +50,7 @@ struct server_state_t {
     friend std::ostream& operator<<(std::ostream &, server_state_t const&);
 
 private:
-    std::vector<capacity_t> usages;                  // usage per server at a moment in time
+    std::shared_ptr<std::vector<capacity_t>> usages; // usage per server at a moment in time
     size_t                  original_data_location;  // where desired data is
 };
 

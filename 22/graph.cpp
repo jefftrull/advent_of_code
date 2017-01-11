@@ -119,9 +119,13 @@ server_state_t::server_state_t() {}
 server_state_t
 server_state_t::state_if_move(size_t src, size_t dst) const {
     // turn the source -> dest move into a new usage state
-    server_state_t moved_state = *this;
-    moved_state.usages[dst] += moved_state.usages[src];
-    moved_state.usages[src] = 0;
+    server_state_t moved_state;
+    // make a deep copy of the usages
+    moved_state.usages = std::make_shared<std::vector<capacity_t>>(usages->begin(), usages->end());
+    moved_state.original_data_location = original_data_location;
+    // now modify the usages to reflect the move
+    (*moved_state.usages)[dst] += (*moved_state.usages)[src];
+    (*moved_state.usages)[src] = 0;
     if (src == moved_state.original_data_location) {
         // moving the target data
         moved_state.original_data_location = dst;
@@ -133,13 +137,19 @@ bool
 server_state_t::operator<(server_state_t const& other) const {
     return (original_data_location < other.original_data_location) ||
         ((original_data_location == other.original_data_location) &&
-         (usages < other.usages));
+         (*usages < *other.usages));
 }
 
 bool
 server_state_t::operator==(server_state_t const& other) const {
     return (original_data_location == other.original_data_location) &&
-        (usages == other.usages);
+        (*usages == *(other.usages));
+}
+
+size_t
+server_state_t::hole_location() const {
+    auto it = std::find(usages->begin(), usages->end(), 0);
+    return std::distance(usages->begin(), it);
 }
 
 size_t
@@ -149,14 +159,14 @@ server_state_t::data_offset() const {
 
 server_state_t::capacity_t
 server_state_t::usage(size_t offset) const {
-    return usages[offset];
+    return (*usages)[offset];
 }
 
 std::ostream&
 operator<<(std::ostream & os, server_state_t const& s) {
     os << "original data at " << s.data_offset() << "\n";
     os << "capacities: ";
-    std::copy(s.usages.begin(), s.usages.end(),
+    std::copy(s.usages->begin(), s.usages->end(),
               std::ostream_iterator<int>(os, ", "));
     return os;
 }
