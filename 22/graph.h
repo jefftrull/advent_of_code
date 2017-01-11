@@ -5,14 +5,17 @@
 #include <boost/property_map/property_map.hpp>
 
 struct server_t {
-    int x;
-    int y;
-    int capacity;
+    using capacity_t = std::int16_t;
+
+    int        x;
+    int        y;
+    capacity_t capacity;
 };
 
 struct server_state_t {
-    std::vector<int> usages;                  // usage per server at a moment in time
-    size_t           original_data_location;  // where desired data is
+    using capacity_t = server_t::capacity_t;
+    std::vector<capacity_t> usages;                  // usage per server at a moment in time
+    size_t                  original_data_location;  // where desired data is
 
     bool operator<(server_state_t const& other) const;
     bool operator==(server_state_t const& other) const;

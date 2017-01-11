@@ -52,11 +52,16 @@ int main(int argc, char **argv) {
         match_results<string::iterator> matches;
         if (regex_match(instr.begin(), instr.end(), matches, df_re)) {
             // collect info on this server
+            int capacity = stoi(matches.str(3));
+            using capacity_t = server_t::capacity_t;
+            assert(capacity <= std::numeric_limits<capacity_t>::max());
             servers.push_back({
                     stoi(matches.str(1)),
                     stoi(matches.str(2)),
-                    stoi(matches.str(3))});
-            initial_state.usages.push_back(stoi(matches.str(4)));
+                    static_cast<capacity_t>(capacity)});
+            int usage = stoi(matches.str(4));
+            assert(usage <= std::numeric_limits<capacity_t>::max());
+            initial_state.usages.push_back(usage);
         }        
     }        
 
