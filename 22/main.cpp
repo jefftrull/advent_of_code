@@ -130,9 +130,8 @@ int main(int argc, char **argv) {
     }        
     move_graph_t move_graph(servers);
 
-    server_state_t   initial_state(move_graph.row_stride()-1,
+    server_state_t   initial_state(move_graph.ur_corner(),
                                    usages.begin(), usages.end());
-
 
     // now see how many viable pairs there are
     // create a generator from the pair calculation:

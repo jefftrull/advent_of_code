@@ -12,6 +12,9 @@ struct server_t {
     capacity_t capacity;
 };
 
+enum class grid_neighbor { North, South, East, West, Invalid };
+grid_neighbor& operator++(grid_neighbor&);
+
 struct server_state_t {
     using capacity_t = server_t::capacity_t;
 
@@ -73,20 +76,23 @@ struct move_graph_t {
     private:
 
         void ensure_valid();
+        size_t dst_offset() const;
 
         move_graph_t const *      move_graph_;
         std::shared_ptr<vertex_t> source_;
         bool                      sentinel_;
-        size_t                    src_server_, dst_server_;
-
+        size_t                    src_server_;
+        grid_neighbor             dst_server_;
     };
 
     std::vector<server_t> const & servers()    const;
-    size_t                        row_stride() const;
+    size_t                        col_stride() const;
+    size_t                        ur_corner()  const;
 
 private:
     std::vector<server_t> const servers_;
-    size_t                      row_stride_;
+    size_t                      ur_corner_;
+    size_t                      col_stride_;
 };
 
 // Concept type requirements
