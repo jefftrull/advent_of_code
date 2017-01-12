@@ -17,25 +17,11 @@ struct server_state_t {
 
     server_state_t();
 
-    template<typename ServIt, typename UsageIt>
-    server_state_t(ServIt sbegin, ServIt send,
-                   UsageIt ubegin, UsageIt uend)
-        : usages(std::make_shared<std::vector<capacity_t>>(ubegin, uend)) {
-        // to find the "upper right" element, first find the largest x (column) value
-        using namespace std;
-        int largest_x = max_element(sbegin, send,
-                                    [](server_t const& a, server_t const& b) {
-                                        return a.x < b.x;
-                                    })->x;
-
-        // then locate the y=0 matching that x, and calculate its offset among the servers
-        original_data_location =
-            distance(sbegin,
-                     find_if(sbegin, send,
-                             [largest_x](server_t const& s) {
-                                 return ((s.x == largest_x) && (s.y == 0));
-                             }));
-    }
+    template<typename UsageIt>
+    server_state_t(size_t target_data_offset,
+                   UsageIt ubegin, UsageIt uend) :
+        usages(std::make_shared<std::vector<capacity_t>>(ubegin, uend)),
+        original_data_location(target_data_offset) {}
 
     capacity_t usage(size_t idx) const;
 
@@ -95,11 +81,12 @@ struct move_graph_t {
 
     };
 
-    std::vector<server_t> const & servers() const;
+    std::vector<server_t> const & servers()    const;
+    size_t                        row_stride() const;
 
 private:
     std::vector<server_t> const servers_;
-
+    size_t                      row_stride_;
 };
 
 // Concept type requirements

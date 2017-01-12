@@ -3,7 +3,25 @@
 
 #include "graph.h"
 
-move_graph_t::move_graph_t(std::vector<server_t> servers) : servers_(std::move(servers)) {}
+move_graph_t::move_graph_t(std::vector<server_t> servers) : servers_(std::move(servers)) {
+    // locate the upper right corner (source data location)
+
+    // first find the largest x (column) value
+    using namespace std;
+    int largest_x = max_element(servers_.begin(), servers_.end(),
+                                [](server_t const& a, server_t const& b) {
+                                    return a.x < b.x;
+                                })->x;
+
+    // then locate the y=0 matching that x, and calculate its offset among the servers
+    row_stride_ =
+        distance(servers_.begin(),
+                 find_if(servers_.begin(), servers_.end(),
+                         [largest_x](server_t const& s) {
+                             return ((s.x == largest_x) && (s.y == 0));
+                         })) + 1;
+
+}
 
 // IncidenceGraph free functions
 
@@ -18,6 +36,11 @@ move_graph_t::vertex_t target(move_graph_t::edge_t const& e, move_graph_t const&
 std::vector<server_t> const &
 move_graph_t::servers() const {
     return servers_;
+}
+
+size_t
+move_graph_t::row_stride() const {
+    return row_stride_;
 }
 
 std::pair<move_graph_t::out_edge_iterator_t, move_graph_t::out_edge_iterator_t>
@@ -99,7 +122,6 @@ move_graph_t::out_edge_iterator_t::ensure_valid() {
             if ((src_server_ == source_->data_offset()) &&
                 ((source_->usage(src_server_) + source_->usage(dst_server_)) >
                  servers[0].capacity)) {
-                std::cerr << "rejecting an overflow move\n";
                 continue;
             }
 

@@ -128,7 +128,9 @@ int main(int argc, char **argv) {
             usages.push_back(usage);
         }        
     }        
-    server_state_t   initial_state(servers.begin(), servers.end(),
+    move_graph_t move_graph(servers);
+
+    server_state_t   initial_state(move_graph.row_stride()-1,
                                    usages.begin(), usages.end());
 
 
@@ -171,8 +173,6 @@ int main(int argc, char **argv) {
 
     // next, find a sequence of moves of data that will result in the data in the
     // upper right being in the upper left
-
-    move_graph_t move_graph(servers);
 
     // requirements for A* search
     using vertex_t = move_graph_t::vertex_t;
