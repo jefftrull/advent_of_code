@@ -9,6 +9,6 @@ add_executable( d22 main.cpp graph.cpp )
 set_target_properties( d22 PROPERTIES
   CXX_STANDARD 14
   COMPILE_OPTIONS "-Wall;-Werror"
-  INCLUDE_DIRECTORIES "${Boost_INCLUDE_DIRS}"
-  LINK_LIBRARIES "${Boost_LIBRARIES}"
 )
+
+target_link_libraries( d22 Boost::boost Boost::context )
